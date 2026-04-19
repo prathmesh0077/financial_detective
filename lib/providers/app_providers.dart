@@ -106,7 +106,7 @@ class WatchlistNotifier extends StateNotifier<List<String>> {
   final SharedPreferences _prefs;
 
   WatchlistNotifier(this._prefs, List<Company> companies)
-      : super(_prefs.getStringList('watchlist_tickers') ?? companies.map((c) => c.ticker).toList());
+      : super(_prefs.getStringList('watchlist_tickers') ?? []);
 
   void _save() {
     _prefs.setStringList('watchlist_tickers', state);

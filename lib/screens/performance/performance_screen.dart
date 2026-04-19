@@ -18,7 +18,7 @@ class PerformanceScreen extends ConsumerStatefulWidget {
 class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
   int _selectedPeriod = 3; // default ALL
   final _fmt = NumberFormat('#,##,##0.00', 'en_IN');
-  final _periods = ['1M', '3M', '1Y', 'ALL'];
+  final _periods = [];
 
   @override
   Widget build(BuildContext context) {
@@ -412,7 +412,7 @@ class PerformanceBody extends ConsumerStatefulWidget {
 
 class _PerformanceBodyState extends ConsumerState<PerformanceBody> {
   int _selectedPeriod = 3;
-  final _periods = ['1M', '3M', '1Y', 'ALL'];
+  final _periods = [];
 
   @override
   Widget build(BuildContext context) {
