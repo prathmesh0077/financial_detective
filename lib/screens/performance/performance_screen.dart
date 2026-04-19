@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/app_providers.dart';
+import '../../models/company.dart';
 // insight_card not directly used on this screen
 
 class PerformanceScreen extends ConsumerStatefulWidget {
@@ -71,33 +72,33 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
                 ],
               ),
             ),
-            // ── ANNUALIZED ALPHA ──
-            _MetricSection(
-              label: 'ANNUALIZED ALPHA',
-              icon: Icons.star_outline,
-              iconColor: AppColors.warning,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('+8.42%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                  Text('vs Nifty 50 Benchmark', style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
-                ],
-              ),
-            ),
-            // ── VOLATILITY ──
-            _MetricSection(
-              label: 'VOLATILITY (σ)',
-              icon: Icons.bar_chart,
-              iconColor: AppColors.chartPurple,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('12.1%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                  Text('Sharpe Ratio: 1.84', style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+            // // ── ANNUALIZED ALPHA ──
+            // _MetricSection(
+            //   label: 'ANNUALIZED ALPHA',
+            //   icon: Icons.star_outline,
+            //   iconColor: AppColors.warning,
+            //   child: Column(
+            //     crossAxisAlignment: CrossAxisAlignment.start,
+            //     children: [
+            //       const Text('+8.42%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+            //       Text('vs Nifty 50 Benchmark', style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
+            //     ],
+            //   ),
+            // ),
+            // // ── VOLATILITY ──
+            // _MetricSection(
+            //   label: 'VOLATILITY (σ)',
+            //   icon: Icons.bar_chart,
+            //   iconColor: AppColors.chartPurple,
+            //   child: Column(
+            //     crossAxisAlignment: CrossAxisAlignment.start,
+            //     children: [
+            //       const Text('12.1%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+            //       Text('Sharpe Ratio: 1.84', style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
+            //     ],
+            //   ),
+            // ),
+            // const SizedBox(height: 16),
             // ── EQUITY CURVE ──
             Container(
               padding: const EdgeInsets.all(16),
@@ -174,9 +175,6 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
             const SizedBox(height: 16),
             // ── TOP ALPHA DRIVERS ──
             _AlphaDrivers(),
-            // ── BACKTESTING ──
-            const SizedBox(height: 16),
-            _BacktestSection(),
             const SizedBox(height: 80),
           ],
         ),
@@ -401,139 +399,12 @@ class _AlphaDrivers extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// BACKTESTING SECTION
-// ═══════════════════════════════════════════════════════════════
-
-class _BacktestSection extends StatefulWidget {
-  @override
-  State<_BacktestSection> createState() => _BacktestSectionState();
-}
-
-class _BacktestSectionState extends State<_BacktestSection> {
-  double _threshold = 70;
-  bool _hasRun = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.science_outlined, color: AppColors.primary, size: 18),
-              const SizedBox(width: 8),
-              Text('BACKTESTING ENGINE', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text('Truth Score Threshold', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    activeTrackColor: AppColors.primary,
-                    inactiveTrackColor: AppColors.border,
-                    thumbColor: AppColors.primary,
-                    overlayColor: AppColors.primary.withValues(alpha: 0.2),
-                    trackHeight: 4,
-                  ),
-                  child: Slider(
-                    value: _threshold,
-                    min: 30,
-                    max: 95,
-                    divisions: 13,
-                    label: '${_threshold.round()}',
-                    onChanged: (v) => setState(() {
-                      _threshold = v;
-                      _hasRun = false;
-                    }),
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primarySurface,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('≥ ${_threshold.round()}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => setState(() => _hasRun = true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.background,
-                minimumSize: const Size(double.infinity, 44),
-              ),
-              child: const Text('RUN BACKTEST'),
-            ),
-          ),
-          if (_hasRun) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primarySurface,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('BACKTEST RESULTS (3Y)', style: TextStyle(color: AppColors.primary, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  _BacktestRow(label: 'Annual Return', value: '+${(18.5 + (_threshold - 70) * 0.3).toStringAsFixed(1)}%'),
-                  _BacktestRow(label: 'Max Drawdown', value: '-${(12.5 - (_threshold - 70) * 0.15).toStringAsFixed(1)}%'),
-                  _BacktestRow(label: 'Win Rate', value: '${(62 + (_threshold - 70) * 0.5).toStringAsFixed(0)}%'),
-                  _BacktestRow(label: 'Stocks Filtered', value: '${(50 - (_threshold / 2)).round()}'),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _BacktestRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _BacktestRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12))),
-          Text(value, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
 // PERFORMANCE BODY (embeddable tab content)
 // ═══════════════════════════════════════════════════════════════
 
 class PerformanceBody extends ConsumerStatefulWidget {
-  const PerformanceBody({super.key});
+  final Company company;
+  const PerformanceBody({super.key, required this.company});
 
   @override
   ConsumerState<PerformanceBody> createState() => _PerformanceBodyState();
@@ -541,13 +412,10 @@ class PerformanceBody extends ConsumerStatefulWidget {
 
 class _PerformanceBodyState extends ConsumerState<PerformanceBody> {
   int _selectedPeriod = 3;
-  final _fmt = NumberFormat('#,##,##0.00', 'en_IN');
   final _periods = ['1M', '3M', '1Y', 'ALL'];
 
   @override
   Widget build(BuildContext context) {
-    final portfolio = ref.watch(portfolioProvider);
-
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -562,45 +430,45 @@ class _PerformanceBodyState extends ConsumerState<PerformanceBody> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '+₹${_fmt.format(portfolio.totalPnl.abs())}',
+                  '${widget.company.changePercent >= 0 ? '+' : ''}${widget.company.changePercent.toStringAsFixed(2)}%',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: portfolio.totalPnl >= 0 ? AppColors.primary : AppColors.error,
+                    color: widget.company.changePercent >= 0 ? AppColors.primary : AppColors.error,
                   ),
                 ),
                 Text(
-                  '+${portfolio.totalReturn.toStringAsFixed(1)}% YTD',
-                  style: TextStyle(color: AppColors.primary, fontSize: 13),
+                  '₹${widget.company.price.toStringAsFixed(2)} Current Price',
+                  style: TextStyle(color: widget.company.changePercent >= 0 ? AppColors.primary : AppColors.error, fontSize: 13),
                 ),
               ],
             ),
           ),
-          _MetricSection(
-            label: 'ANNUALIZED ALPHA',
-            icon: Icons.star_outline,
-            iconColor: AppColors.warning,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('+8.42%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                Text('vs Nifty 50 Benchmark', style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
-              ],
-            ),
-          ),
-          _MetricSection(
-            label: 'VOLATILITY (σ)',
-            icon: Icons.bar_chart,
-            iconColor: AppColors.chartPurple,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('12.1%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                Text('Sharpe Ratio: 1.84', style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+          // _MetricSection(
+          //   label: 'ANNUALIZED ALPHA',
+          //   icon: Icons.star_outline,
+          //   iconColor: AppColors.warning,
+          //   child: Column(
+          //     crossAxisAlignment: CrossAxisAlignment.start,
+          //     children: [
+          //       const Text('+8.42%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+          //       Text('vs Nifty 50 Benchmark', style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
+          //     ],
+          //   ),
+          // ),
+          // _MetricSection(
+          //   label: 'VOLATILITY (σ)',
+          //   icon: Icons.bar_chart,
+          //   iconColor: AppColors.chartPurple,
+          //   child: Column(
+          //     crossAxisAlignment: CrossAxisAlignment.start,
+          //     children: [
+          //       const Text('12.1%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+          //       Text('Sharpe Ratio: 1.84', style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
+          //     ],
+          //   ),
+          // ),
+          // const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -671,8 +539,6 @@ class _PerformanceBodyState extends ConsumerState<PerformanceBody> {
           _RiskMetrics(),
           const SizedBox(height: 16),
           _AlphaDrivers(),
-          const SizedBox(height: 16),
-          _BacktestSection(),
           const SizedBox(height: 80),
         ],
       ),

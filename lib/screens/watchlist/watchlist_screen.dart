@@ -138,6 +138,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       company.ticker,
       10,
       company.price,
+      company: company,
     );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

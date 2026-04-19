@@ -57,40 +57,40 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             _MiniBarChart(portfolio: portfolio),
             const SizedBox(height: 20),
             // ── SEARCH BAR ──
-            GestureDetector(
-              onTap: () => _showAddDialog(companies),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.add_circle_outline, color: AppColors.textTertiary, size: 18),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Search and add stock to simulate...',
-                        style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardLight,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text('CMD + K', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, letterSpacing: 0.5)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
+            // GestureDetector(
+            //   onTap: () => _showAddDialog(companies),
+            //   child: Container(
+            //     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            //     decoration: BoxDecoration(
+            //       color: AppColors.card,
+            //       borderRadius: BorderRadius.circular(12),
+            //       border: Border.all(color: AppColors.border),
+            //     ),
+            //     child: Row(
+            //       children: [
+            //         Icon(Icons.add_circle_outline, color: AppColors.textTertiary, size: 18),
+            //         const SizedBox(width: 10),
+            //         Expanded(
+            //           child: Text(
+            //             'Search and add stock to simulate...',
+            //             style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
+            //             overflow: TextOverflow.ellipsis,
+            //           ),
+            //         ),
+            //         const SizedBox(width: 8),
+            //         Container(
+            //           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            //           decoration: BoxDecoration(
+            //             color: AppColors.cardLight,
+            //             borderRadius: BorderRadius.circular(6),
+            //           ),
+            //           child: Text('CMD + K', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, letterSpacing: 0.5)),
+            //         ),
+            //       ],
+            //     ),
+            //   ),
+            // ),
+            // const SizedBox(height: 24),
             // ── HOLDINGS HEADER ──
             Row(
               children: [
@@ -143,7 +143,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             _SimulationInsight(portfolio: portfolio),
             const SizedBox(height: 16),
             // ── VOLATILITY ──
-            _VolatilityCard(portfolio: portfolio),
+            // _VolatilityCard(portfolio: portfolio),
+            // const SizedBox(height: 16),
+            // ── BACKTESTING ENGINE ──
+            _BacktestSection(),
             const SizedBox(height: 80),
           ],
         ),
@@ -174,6 +177,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   company.ticker,
                   10,
                   company.price,
+                  company: company,
                 );
                 Navigator.pop(context);
               },
@@ -323,10 +327,10 @@ class _SimulationInsight extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
             ),
-            child: const Text(
-              'OPTIMIZE SIMULATION',
-              style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1),
-            ),
+            // child: const Text(
+            //   'OPTIMIZE SIMULATION',
+            //   style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1),
+            // ),
           ),
         ],
       ),
@@ -338,41 +342,41 @@ class _SimulationInsight extends StatelessWidget {
 // VOLATILITY CARD
 // ═══════════════════════════════════════════════════════════════
 
-class _VolatilityCard extends StatelessWidget {
-  final Portfolio portfolio;
-  const _VolatilityCard({required this.portfolio});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'VOLATILITY',
-            style: TextStyle(color: AppColors.textTertiary, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 2),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Low',
-            style: TextStyle(color: AppColors.textPrimary, fontSize: 28, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '0.82 Beta',
-            style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// class _VolatilityCard extends StatelessWidget {
+//   final Portfolio portfolio;
+//   const _VolatilityCard({required this.portfolio});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       width: double.infinity,
+//       padding: const EdgeInsets.all(20),
+//       decoration: BoxDecoration(
+//         color: AppColors.card,
+//         borderRadius: BorderRadius.circular(14),
+//         border: Border.all(color: AppColors.border, width: 0.5),
+//       ),
+//       child: Column(
+//         children: [
+//           Text(
+//             'VOLATILITY',
+//             style: TextStyle(color: AppColors.textTertiary, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 2),
+//           ),
+//           const SizedBox(height: 8),
+//           const Text(
+//             'Low',
+//             style: TextStyle(color: AppColors.textPrimary, fontSize: 28, fontWeight: FontWeight.w800),
+//           ),
+//           const SizedBox(height: 4),
+//           Text(
+//             '0.82 Beta',
+//             style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
 
 // ═══════════════════════════════════════════════════════════════
 // ADD STOCK BOTTOM SHEET
@@ -440,13 +444,142 @@ class _AddStockSheetState extends State<_AddStockSheet> {
                 ),
                 title: Text(c.name, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14)),
                 subtitle: Text(c.ticker, style: const TextStyle(color: AppColors.textTertiary, fontSize: 12)),
-                trailing: Text('₹${c.price.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.textSecondary)),
-                onTap: () => widget.onAdd(c),
               );
             },
           ),
         ),
       ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BACKTESTING SECTION
+// ═══════════════════════════════════════════════════════════════
+
+class _BacktestSection extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_BacktestSection> createState() => _BacktestSectionState();
+}
+
+class _BacktestSectionState extends ConsumerState<_BacktestSection> {
+  double _threshold = 70;
+  bool _hasRun = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final portfolio = ref.watch(portfolioProvider);
+    final int baseCount = portfolio.holdings.isNotEmpty ? portfolio.holdings.length : 50;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.science_outlined, color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              Text('BACKTESTING ENGINE', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text('Truth Score Threshold', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    activeTrackColor: AppColors.primary,
+                    inactiveTrackColor: AppColors.border,
+                    thumbColor: AppColors.primary,
+                    overlayColor: AppColors.primary.withValues(alpha: 0.2),
+                    trackHeight: 4,
+                  ),
+                  child: Slider(
+                    value: _threshold,
+                    min: 30,
+                    max: 95,
+                    divisions: 13,
+                    label: '${_threshold.round()}',
+                    onChanged: (v) => setState(() {
+                      _threshold = v;
+                      _hasRun = false;
+                    }),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySurface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('≥ ${_threshold.round()}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => setState(() => _hasRun = true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.background,
+                minimumSize: const Size(double.infinity, 44),
+              ),
+              child: const Text('RUN BACKTEST'),
+            ),
+          ),
+          if (_hasRun) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primarySurface,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('BACKTEST RESULTS (3Y)', style: TextStyle(color: AppColors.primary, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  _BacktestRow(label: 'Annual Return', value: '+${(18.5 + (_threshold - 70) * 0.3).toStringAsFixed(1)}%'),
+                  _BacktestRow(label: 'Max Drawdown', value: '-${(12.5 - (_threshold - 70) * 0.15).toStringAsFixed(1)}%'),
+                  _BacktestRow(label: 'Win Rate', value: '${(62 + (_threshold - 70) * 0.5).toStringAsFixed(0)}%'),
+                  _BacktestRow(label: 'Stocks Filtered', value: '${(baseCount - (_threshold / 5)).round().clamp(0, 100)}'),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BacktestRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _BacktestRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12))),
+          Text(value, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+        ],
+      ),
     );
   }
 }

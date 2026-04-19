@@ -296,6 +296,7 @@ class CompanyDataGenerator {
         sector: s['sector'] as String,
         price: price,
         changePercent: s['change'] as double,
+        volatility: _rand(10.0, 32.0),
         truthScore: truthScore,
         accountingRiskScore: riskScore,
         sentimentScore: s['sent'] as int,

@@ -303,15 +303,23 @@ class _TruthPriceChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final prices = company.priceHistory;
+    final maxPriceIdx = (prices.length - 1).toDouble();
+    final maxTruthIdx = (company.truthScoreHistory.length - 1).toDouble();
+    final maxX = maxPriceIdx > 0 ? maxPriceIdx : 1.0;
+    final double titleInterval = (maxX / 5).clamp(1.0, double.infinity).ceilToDouble();
+
     return InsightCard(
       title: 'TRUTH VS PRICE CORRELATION',
       icon: Icons.show_chart,
       iconColor: AppColors.chartBlue,
       children: [
         SizedBox(
-          height: 160,
+          height: 180,
           child: LineChart(
             LineChartData(
+              minX: 0,
+              maxX: maxX,
               gridData: FlGridData(
                 show: true,
                 drawHorizontalLine: true,
@@ -322,7 +330,40 @@ class _TruthPriceChart extends StatelessWidget {
                   strokeWidth: 0.5,
                 ),
               ),
-              titlesData: const FlTitlesData(show: false),
+              titlesData: FlTitlesData(
+                show: true,
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 24,
+                    interval: titleInterval,
+                    getTitlesWidget: (value, meta) {
+                      if (value >= maxX) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text('Now', style: TextStyle(color: AppColors.textTertiary, fontSize: 10)),
+                        );
+                      }
+                      if (value == 0) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text('Start', style: TextStyle(color: AppColors.textTertiary, fontSize: 10)),
+                        );
+                      }
+                      final periodsAgo = (maxX - value).round();
+                      if (periodsAgo <= 0 || periodsAgo >= maxX.round()) return const SizedBox.shrink();
+                      
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text('-$periodsAgo', style: const TextStyle(color: AppColors.textTertiary, fontSize: 10)),
+                      );
+                    },
+                  ),
+                ),
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
               borderData: FlBorderData(show: false),
               lineBarsData: [
                 // Truth Score line
@@ -330,7 +371,10 @@ class _TruthPriceChart extends StatelessWidget {
                   spots: company.truthScoreHistory
                       .asMap()
                       .entries
-                      .map((e) => FlSpot(e.key.toDouble(), e.value))
+                      .map((e) => FlSpot(
+                            maxTruthIdx > 0 ? (e.key / maxTruthIdx) * maxX : 0.0,
+                            e.value.toDouble(),
+                          ))
                       .toList(),
                   isCurved: true,
                   color: AppColors.primary,
@@ -343,7 +387,7 @@ class _TruthPriceChart extends StatelessWidget {
                 ),
                 // Price line (normalized to 0-100)
                 LineChartBarData(
-                  spots: _normalizedPrices(),
+                  spots: _normalizedPrices(prices),
                   isCurved: true,
                   color: AppColors.chartBlue,
                   barWidth: 2,
@@ -368,12 +412,12 @@ class _TruthPriceChart extends StatelessWidget {
     );
   }
 
-  List<FlSpot> _normalizedPrices() {
-    final prices = company.priceHistory;
+  List<FlSpot> _normalizedPrices(List<double> prices) {
     if (prices.isEmpty) return [];
     final minP = prices.reduce((a, b) => a < b ? a : b);
     final maxP = prices.reduce((a, b) => a > b ? a : b);
     final range = maxP - minP;
+
     return prices
         .asMap()
         .entries
@@ -853,20 +897,20 @@ class ForensicDashboardBody extends ConsumerWidget {
           const SizedBox(height: 8),
           _SmartMoneyPreview(company: company, context: context),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.download, size: 18),
-              label: const Text('DOWNLOAD FULL FORENSIC PDF'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.background,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
+          // SizedBox(
+          //   width: double.infinity,
+          //   height: 52,
+          //   child: ElevatedButton.icon(
+          //     onPressed: () {},
+          //     icon: const Icon(Icons.download, size: 18),
+          //     label: const Text('DOWNLOAD FULL FORENSIC PDF'),
+          //     style: ElevatedButton.styleFrom(
+          //       backgroundColor: AppColors.primary,
+          //       foregroundColor: AppColors.background,
+          //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          //     ),
+          //   ),
+          // ),
           const SizedBox(height: 80),
         ],
       ),

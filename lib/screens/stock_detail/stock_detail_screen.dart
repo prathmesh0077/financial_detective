@@ -222,7 +222,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen>
           // Tab 3: Money Trail
           const MoneyTrailBody(),
           // Tab 4: Performance
-          const PerformanceBody(),
+          PerformanceBody(company: company),
         ],
       ),
     );

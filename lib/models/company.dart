@@ -164,6 +164,7 @@ class Company {
   final String sector;
   final double price;
   final double changePercent;
+  final double volatility;
 
   // ── Scores ──
   final int truthScore;
@@ -204,6 +205,7 @@ class Company {
     required this.sector,
     required this.price,
     required this.changePercent,
+    required this.volatility,
     required this.truthScore,
     required this.accountingRiskScore,
     required this.sentimentScore,
@@ -261,6 +263,7 @@ class PortfolioHolding {
   final int shares;
   final double avgPrice;
   final double currentPrice;
+  final double volatility;
   final int truthScore;
 
   const PortfolioHolding({
@@ -269,6 +272,7 @@ class PortfolioHolding {
     required this.shares,
     required this.avgPrice,
     required this.currentPrice,
+    required this.volatility,
     required this.truthScore,
   });
 
