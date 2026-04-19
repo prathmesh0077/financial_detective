@@ -84,7 +84,7 @@ class MoneyTrailScreen extends ConsumerWidget {
             _TaxLeakage(mt: mt, fmt: fmt),
             const SizedBox(height: 16),
             // ── DETAILED FLOW LEDGER ──
-            _FlowLedger(mt: mt, fmt: fmt),
+            // _FlowLedger(mt: mt, fmt: fmt),
             const SizedBox(height: 80),
           ],
         ),
@@ -432,152 +432,152 @@ class _TaxLeakage extends StatelessWidget {
 // DETAILED FLOW LEDGER
 // ═══════════════════════════════════════════════════════════════
 
-class _FlowLedger extends StatelessWidget {
-  final MoneyTrailData mt;
-  final NumberFormat fmt;
-  const _FlowLedger({required this.mt, required this.fmt});
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = [
-      _LedgerRow(component: 'Gross Sales', amount: mt.revenue, pctRev: 100.0, trend: '+12.4%', trendPositive: true),
-      _LedgerRow(component: 'Cost of Goods\nSold\n(Leakage)', amount: mt.cogs, pctRev: (mt.cogs / mt.revenue) * 100, trend: '-5.2%', trendPositive: true),
-      _LedgerRow(component: 'Gross\nProfit', amount: mt.grossProfit, pctRev: mt.grossMargin, trend: '+14.2%', trendPositive: true),
-      _LedgerRow(component: 'Operating\nExpenses\n(OPEX)', amount: mt.operatingExpenses, pctRev: (mt.operatingExpenses / mt.revenue) * 100, trend: '+34.2%', trendPositive: false),
-      _LedgerRow(component: 'Net\nProfit\nbefore Tax', amount: mt.operatingIncome, pctRev: mt.operatingMargin, trend: '-3.8%', trendPositive: false),
-      _LedgerRow(component: 'Taxes', amount: mt.taxes, pctRev: (mt.taxes / mt.revenue) * 100, trend: '-2.1%', trendPositive: true),
-      _LedgerRow(component: 'Net\nIncome\n(Bottom\nLine)', amount: mt.netIncome, pctRev: mt.netMargin, trend: '+51.5%', trendPositive: true, isHighlight: true),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text('DETAILED FLOW LEDGER', style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
-              ),
-              Text('⬆ EXPORT CSV', style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w600)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Table header
-          _TableHeader(),
-          const Divider(color: AppColors.border, height: 1),
-          // Table rows
-          ...rows,
-        ],
-      ),
-    );
-  }
-}
-
-class _TableHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: const [
-          Expanded(flex: 3, child: Text('COMPONENT', style: TextStyle(color: AppColors.textTertiary, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1))),
-          Expanded(flex: 3, child: Text('AMOUNT', style: TextStyle(color: AppColors.textTertiary, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1))),
-          Expanded(flex: 2, child: Text('% OF\nREV', style: TextStyle(color: AppColors.textTertiary, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1))),
-          Expanded(flex: 2, child: Text('TREND', style: TextStyle(color: AppColors.textTertiary, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1), textAlign: TextAlign.right)),
-        ],
-      ),
-    );
-  }
-}
-
-class _LedgerRow extends StatelessWidget {
-  final String component;
-  final double amount;
-  final double pctRev;
-  final String trend;
-  final bool trendPositive;
-  final bool isHighlight;
-
-  const _LedgerRow({
-    required this.component,
-    required this.amount,
-    required this.pctRev,
-    required this.trend,
-    required this.trendPositive,
-    this.isHighlight = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        color: isHighlight ? AppColors.primarySurface : Colors.transparent,
-        border: Border(bottom: BorderSide(color: AppColors.border.withValues(alpha: 0.3))),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              component,
-              style: TextStyle(
-                color: isHighlight ? AppColors.primary : AppColors.textSecondary,
-                fontSize: 11,
-                fontWeight: isHighlight ? FontWeight.w700 : FontWeight.w400,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              '₹${_formatAmount(amount)}',
-              style: TextStyle(
-                color: isHighlight ? AppColors.primary : AppColors.textPrimary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              '${pctRev.toStringAsFixed(1)}%',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              trend,
-              style: TextStyle(
-                color: trendPositive ? AppColors.primary : AppColors.error,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatAmount(double val) {
-    if (val >= 10000) return '${(val / 1000).toStringAsFixed(1)}K Cr';
-    if (val >= 1000) return '${(val / 1).toStringAsFixed(0)} Cr';
-    return '${val.toStringAsFixed(1)} Cr';
-  }
-}
+// class _FlowLedger extends StatelessWidget {
+//   final MoneyTrailData mt;
+//   final NumberFormat fmt;
+//   const _FlowLedger({required this.mt, required this.fmt});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final rows = [
+//       _LedgerRow(component: 'Gross Sales', amount: mt.revenue, pctRev: 100.0, trend: '+12.4%', trendPositive: true),
+//       _LedgerRow(component: 'Cost of Goods\nSold\n(Leakage)', amount: mt.cogs, pctRev: (mt.cogs / mt.revenue) * 100, trend: '-5.2%', trendPositive: true),
+//       _LedgerRow(component: 'Gross\nProfit', amount: mt.grossProfit, pctRev: mt.grossMargin, trend: '+14.2%', trendPositive: true),
+//       _LedgerRow(component: 'Operating\nExpenses\n(OPEX)', amount: mt.operatingExpenses, pctRev: (mt.operatingExpenses / mt.revenue) * 100, trend: '+34.2%', trendPositive: false),
+//       _LedgerRow(component: 'Net\nProfit\nbefore Tax', amount: mt.operatingIncome, pctRev: mt.operatingMargin, trend: '-3.8%', trendPositive: false),
+//       _LedgerRow(component: 'Taxes', amount: mt.taxes, pctRev: (mt.taxes / mt.revenue) * 100, trend: '-2.1%', trendPositive: true),
+//       _LedgerRow(component: 'Net\nIncome\n(Bottom\nLine)', amount: mt.netIncome, pctRev: mt.netMargin, trend: '+51.5%', trendPositive: true, isHighlight: true),
+//     ];
+//
+//     return Container(
+//       padding: const EdgeInsets.all(16),
+//       decoration: BoxDecoration(
+//         color: AppColors.card,
+//         borderRadius: BorderRadius.circular(14),
+//         border: Border.all(color: AppColors.border, width: 0.5),
+//       ),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Row(
+//             children: [
+//               const Expanded(
+//                 child: Text('DETAILED FLOW LEDGER', style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+//               ),
+//               Text('⬆ EXPORT CSV', style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w600)),
+//             ],
+//           ),
+//           const SizedBox(height: 16),
+//           // Table header
+//           _TableHeader(),
+//           const Divider(color: AppColors.border, height: 1),
+//           // Table rows
+//           ...rows,
+//         ],
+//       ),
+//     );
+//   }
+// }
+//
+// class _TableHeader extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return Padding(
+//       padding: const EdgeInsets.symmetric(vertical: 8),
+//       child: Row(
+//         children: const [
+//           Expanded(flex: 3, child: Text('COMPONENT', style: TextStyle(color: AppColors.textTertiary, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1))),
+//           Expanded(flex: 3, child: Text('AMOUNT', style: TextStyle(color: AppColors.textTertiary, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1))),
+//           Expanded(flex: 2, child: Text('% OF\nREV', style: TextStyle(color: AppColors.textTertiary, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1))),
+//           Expanded(flex: 2, child: Text('TREND', style: TextStyle(color: AppColors.textTertiary, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1), textAlign: TextAlign.right)),
+//         ],
+//       ),
+//     );
+//   }
+// }
+//
+// class _LedgerRow extends StatelessWidget {
+//   final String component;
+//   final double amount;
+//   final double pctRev;
+//   final String trend;
+//   final bool trendPositive;
+//   final bool isHighlight;
+//
+//   const _LedgerRow({
+//     required this.component,
+//     required this.amount,
+//     required this.pctRev,
+//     required this.trend,
+//     required this.trendPositive,
+//     this.isHighlight = false,
+//   });
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       padding: const EdgeInsets.symmetric(vertical: 10),
+//       decoration: BoxDecoration(
+//         color: isHighlight ? AppColors.primarySurface : Colors.transparent,
+//         border: Border(bottom: BorderSide(color: AppColors.border.withValues(alpha: 0.3))),
+//       ),
+//       child: Row(
+//         children: [
+//           Expanded(
+//             flex: 3,
+//             child: Text(
+//               component,
+//               style: TextStyle(
+//                 color: isHighlight ? AppColors.primary : AppColors.textSecondary,
+//                 fontSize: 11,
+//                 fontWeight: isHighlight ? FontWeight.w700 : FontWeight.w400,
+//               ),
+//             ),
+//           ),
+//           Expanded(
+//             flex: 3,
+//             child: Text(
+//               '₹${_formatAmount(amount)}',
+//               style: TextStyle(
+//                 color: isHighlight ? AppColors.primary : AppColors.textPrimary,
+//                 fontSize: 11,
+//                 fontWeight: FontWeight.w600,
+//               ),
+//             ),
+//           ),
+//           Expanded(
+//             flex: 2,
+//             child: Text(
+//               '${pctRev.toStringAsFixed(1)}%',
+//               style: TextStyle(
+//                 color: AppColors.textSecondary,
+//                 fontSize: 11,
+//               ),
+//             ),
+//           ),
+//           Expanded(
+//             flex: 2,
+//             child: Text(
+//               trend,
+//               style: TextStyle(
+//                 color: trendPositive ? AppColors.primary : AppColors.error,
+//                 fontSize: 11,
+//                 fontWeight: FontWeight.w600,
+//               ),
+//               textAlign: TextAlign.right,
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   String _formatAmount(double val) {
+//     if (val >= 10000) return '${(val / 1000).toStringAsFixed(1)}K Cr';
+//     if (val >= 1000) return '${(val / 1).toStringAsFixed(0)} Cr';
+//     return '${val.toStringAsFixed(1)} Cr';
+//   }
+// }
 
 // ═══════════════════════════════════════════════════════════════
 // MONEY TRAIL BODY (embeddable tab content)
@@ -634,7 +634,7 @@ class MoneyTrailBody extends ConsumerWidget {
           const SizedBox(height: 16),
           _TaxLeakage(mt: mt, fmt: fmt),
           const SizedBox(height: 16),
-          _FlowLedger(mt: mt, fmt: fmt),
+          // _FlowLedger(mt: mt, fmt: fmt),
           const SizedBox(height: 80),
         ],
       ),
