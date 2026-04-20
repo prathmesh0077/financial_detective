@@ -6,10 +6,12 @@ import 'theme/app_theme.dart';
 import 'providers/app_providers.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_shell.dart';
+import 'services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  await SupabaseService.init();
   final prefs = await SharedPreferences.getInstance();
 
   SystemChrome.setSystemUIOverlayStyle(

@@ -43,8 +43,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     super.dispose();
   }
 
-  void _login() {
-    ref.read(authProvider.notifier).login(_emailController.text);
+  bool _isLoading = false;
+
+  Future<void> _login() async {
+    if (_isLoading) return;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter email and password')),
+      );
+      return;
+    }
+    setState(() => _isLoading = true);
+    await ref.read(authProvider.notifier).login(email, password);
+    if (mounted) {
+      setState(() => _isLoading = false);
+      final error = ref.read(authProvider).errorMessage;
+      if (error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
+        );
+      }
+    }
   }
 
   @override

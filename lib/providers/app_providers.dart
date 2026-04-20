@@ -1,10 +1,12 @@
 import 'dart:async';
-import 'dart:math';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/company.dart';
 import '../data/company_data.dart';
+import '../services/supabase_service.dart';
+import '../services/price_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) => throw UnimplementedError());
 
@@ -16,26 +18,120 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) => throw Uni
 class AuthState {
   final bool isLoggedIn;
   final String? email;
+  final bool isLoading;
+  final String? errorMessage;
 
-  const AuthState({this.isLoggedIn = false, this.email});
+  const AuthState({
+    this.isLoggedIn = false,
+    this.email,
+    this.isLoading = false,
+    this.errorMessage,
+  });
 
-  AuthState copyWith({bool? isLoggedIn, String? email}) {
+  AuthState copyWith({
+    bool? isLoggedIn,
+    String? email,
+    bool? isLoading,
+    String? errorMessage,
+  }) {
     return AuthState(
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
       email: email ?? this.email,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage,
     );
   }
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(const AuthState());
-
-  void login(String email) {
-    state = state.copyWith(isLoggedIn: true, email: email);
+  AuthNotifier() : super(const AuthState()) {
+    _restoreSession();
   }
 
-  void logout() {
+  void _restoreSession() {
+    if (SupabaseService.isLoggedIn) {
+      state = AuthState(
+        isLoggedIn: true,
+        email: SupabaseService.currentUserEmail,
+      );
+    }
+  }
+
+  Future<void> login(String email, String password) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await SupabaseService.signIn(email, password);
+      state = AuthState(
+        isLoggedIn: true,
+        email: SupabaseService.currentUserEmail ?? email,
+      );
+    } catch (e) {
+      String msg = 'Login failed';
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('invalid login credentials') ||
+          errStr.contains('invalid_credentials')) {
+        msg = 'Invalid email or password';
+      } else if (errStr.contains('email not confirmed')) {
+        msg = 'Please confirm your email first';
+      } else if (errStr.contains('user not found')) {
+        msg = 'No account found with this email';
+      } else if (errStr.contains('network') || errStr.contains('socket')) {
+        msg = 'Network error. Check your connection.';
+      }
+      state = state.copyWith(isLoading: false, errorMessage: msg);
+    }
+  }
+
+  Future<void> signup(String email, String password) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final response = await SupabaseService.signUp(email, password);
+      if (response.user != null) {
+        // Check if email confirmation is required
+        if (response.session != null) {
+          state = AuthState(
+            isLoggedIn: true,
+            email: response.user!.email ?? email,
+          );
+        } else {
+          // Email confirmation required
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Check your email to confirm your account',
+          );
+        }
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'Signup failed. Please try again.',
+        );
+      }
+    } catch (e) {
+      String msg = 'Signup failed';
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('already registered') ||
+          errStr.contains('user_already_exists')) {
+        msg = 'An account with this email already exists';
+      } else if (errStr.contains('password')) {
+        msg = 'Password must be at least 6 characters';
+      } else if (errStr.contains('valid email') || errStr.contains('invalid')) {
+        msg = 'Please enter a valid email address';
+      } else if (errStr.contains('network') || errStr.contains('socket')) {
+        msg = 'Network error. Check your connection.';
+      }
+      state = state.copyWith(isLoading: false, errorMessage: msg);
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await SupabaseService.signOut();
+    } catch (_) {}
     state = const AuthState();
+  }
+
+  void clearError() {
+    state = state.copyWith(errorMessage: null);
   }
 }
 
@@ -47,19 +143,312 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
 // COMPANIES PROVIDER
 // ═══════════════════════════════════════════════════════════════
 
-class StockSimulatorNotifier extends StateNotifier<List<Company>> {
-  Timer? _timer;
+Company _mapRowToCompany(Map<String, dynamic> row) {
+  // Parse smart money signal
+  SmartMoneySignal parseSignal(String? s) {
+    switch (s) {
+      case 'fiiBuying': return SmartMoneySignal.fiiBuying;
+      case 'fiiSelling': return SmartMoneySignal.fiiSelling;
+      case 'retailAccumulating': return SmartMoneySignal.retailAccumulating;
+      case 'retailDumping': return SmartMoneySignal.retailDumping;
+      default: return SmartMoneySignal.mixed;
+    }
+  }
 
-  StockSimulatorNotifier() : super(CompanyDataGenerator.generateAll()) {
-    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+  Trend parseTrend(String? s) {
+    switch (s) {
+      case 'improving': return Trend.improving;
+      case 'declining': return Trend.declining;
+      default: return Trend.stable;
+    }
+  }
+
+  FlagSeverity parseSeverity(String? s) {
+    switch (s) {
+      case 'high': return FlagSeverity.high;
+      case 'medium': return FlagSeverity.medium;
+      default: return FlagSeverity.low;
+    }
+  }
+
+  ChangeImpact parseImpact(String? s) {
+    switch (s) {
+      case 'positive': return ChangeImpact.positive;
+      case 'negative': return ChangeImpact.negative;
+      default: return ChangeImpact.neutral;
+    }
+  }
+
+  // Parse JSON arrays safely
+  final keyInsightsRaw = row['key_insights'];
+  List<String> keyInsights = [];
+  if (keyInsightsRaw is List) {
+    keyInsights = keyInsightsRaw.map((e) => e.toString()).toList();
+  } else if (keyInsightsRaw is String) {
+    try { keyInsights = List<String>.from(jsonDecode(keyInsightsRaw)); } catch (_) {}
+  }
+
+  final redFlagsRaw = row['red_flags'];
+  List<RedFlag> redFlags = [];
+  if (redFlagsRaw is List) {
+    redFlags = redFlagsRaw.map((e) {
+      final m = e is Map<String, dynamic> ? e : <String, dynamic>{};
+      return RedFlag(
+        title: m['title']?.toString() ?? '',
+        description: m['description']?.toString() ?? '',
+        severity: parseSeverity(m['severity']?.toString()),
+      );
+    }).toList();
+  } else if (redFlagsRaw is String) {
+    try {
+      final decoded = jsonDecode(redFlagsRaw) as List;
+      redFlags = decoded.map((m) => RedFlag(
+        title: m['title']?.toString() ?? '',
+        description: m['description']?.toString() ?? '',
+        severity: parseSeverity(m['severity']?.toString()),
+      )).toList();
+    } catch (_) {}
+  }
+
+  final whatChangedRaw = row['what_changed'];
+  List<WhatChanged> whatChanged = [];
+  if (whatChangedRaw is List) {
+    whatChanged = whatChangedRaw.map((e) {
+      final m = e is Map<String, dynamic> ? e : <String, dynamic>{};
+      return WhatChanged(
+        date: m['date']?.toString() ?? '',
+        title: m['title']?.toString() ?? '',
+        description: m['description']?.toString() ?? '',
+        impact: parseImpact(m['impact']?.toString()),
+      );
+    }).toList();
+  } else if (whatChangedRaw is String) {
+    try {
+      final decoded = jsonDecode(whatChangedRaw) as List;
+      whatChanged = decoded.map((m) => WhatChanged(
+        date: m['date']?.toString() ?? '',
+        title: m['title']?.toString() ?? '',
+        description: m['description']?.toString() ?? '',
+        impact: parseImpact(m['impact']?.toString()),
+      )).toList();
+    } catch (_) {}
+  }
+
+  final credRaw = row['credibility_timeline'];
+  List<CredibilityEntry> credTimeline = [];
+  if (credRaw is List) {
+    credTimeline = credRaw.map((e) {
+      final m = e is Map<String, dynamic> ? e : <String, dynamic>{};
+      return CredibilityEntry(
+        claim: m['claim']?.toString() ?? '',
+        reality: m['reality']?.toString() ?? '',
+        met: m['met'] == true,
+        quarter: m['quarter']?.toString() ?? '',
+      );
+    }).toList();
+  } else if (credRaw is String) {
+    try {
+      final decoded = jsonDecode(credRaw) as List;
+      credTimeline = decoded.map((m) => CredibilityEntry(
+        claim: m['claim']?.toString() ?? '',
+        reality: m['reality']?.toString() ?? '',
+        met: m['met'] == true,
+        quarter: m['quarter']?.toString() ?? '',
+      )).toList();
+    } catch (_) {}
+  }
+
+  final fraudRaw = row['fraud_similarities'];
+  List<FraudSimilarity> fraudSim = [];
+  if (fraudRaw is List) {
+    fraudSim = fraudRaw.map((e) {
+      final m = e is Map<String, dynamic> ? e : <String, dynamic>{};
+      return FraudSimilarity(
+        fraudName: m['fraudName']?.toString() ?? '',
+        similarity: (m['similarity'] as num?)?.toDouble() ?? 0,
+        description: m['description']?.toString() ?? '',
+      );
+    }).toList();
+  } else if (fraudRaw is String) {
+    try {
+      final decoded = jsonDecode(fraudRaw) as List;
+      fraudSim = decoded.map((m) => FraudSimilarity(
+        fraudName: m['fraudName']?.toString() ?? '',
+        similarity: (m['similarity'] as num?)?.toDouble() ?? 0,
+        description: m['description']?.toString() ?? '',
+      )).toList();
+    } catch (_) {}
+  }
+
+  // Parse smart money data
+  final smdRaw = row['smart_money_data'];
+  Map<String, dynamic> smdMap = {};
+  if (smdRaw is Map<String, dynamic>) {
+    smdMap = smdRaw;
+  } else if (smdRaw is String) {
+    try { smdMap = Map<String, dynamic>.from(jsonDecode(smdRaw)); } catch (_) {}
+  }
+  final smartMoneyData = SmartMoneyData(
+    fiiHolding: (smdMap['fiiHolding'] as num?)?.toDouble() ?? 15.0,
+    diiHolding: (smdMap['diiHolding'] as num?)?.toDouble() ?? 20.0,
+    retailHolding: (smdMap['retailHolding'] as num?)?.toDouble() ?? 65.0,
+    fiiChange: (smdMap['fiiChange'] as num?)?.toDouble() ?? 0,
+    diiChange: (smdMap['diiChange'] as num?)?.toDouble() ?? 0,
+    retailChange: (smdMap['retailChange'] as num?)?.toDouble() ?? 0,
+    isRetailTrap: smdMap['isRetailTrap'] == true,
+    sentiment: smdMap['sentiment']?.toString() ?? 'Mixed signals',
+  );
+
+  // Parse money trail data
+  final mtRaw = row['money_trail_data'];
+  Map<String, dynamic> mtMap = {};
+  if (mtRaw is Map<String, dynamic>) {
+    mtMap = mtRaw;
+  } else if (mtRaw is String) {
+    try { mtMap = Map<String, dynamic>.from(jsonDecode(mtRaw)); } catch (_) {}
+  }
+  final revenue = (mtMap['revenue'] as num?)?.toDouble() ?? 1000.0;
+  final grossProfit = (mtMap['grossProfit'] as num?)?.toDouble() ?? 400.0;
+  final operatingIncome = (mtMap['operatingIncome'] as num?)?.toDouble() ?? 200.0;
+  final netIncome = (mtMap['netIncome'] as num?)?.toDouble() ?? 150.0;
+  final cogs = (mtMap['cogs'] as num?)?.toDouble() ?? 600.0;
+  final operatingExpenses = (mtMap['operatingExpenses'] as num?)?.toDouble() ?? 200.0;
+  final taxes = (mtMap['taxes'] as num?)?.toDouble() ?? 50.0;
+
+  final expensesRaw = mtMap['expenses'];
+  List<ExpenseItem> expenses = [];
+  if (expensesRaw is List) {
+    expenses = expensesRaw.map((e) {
+      final m = e is Map<String, dynamic> ? e : <String, dynamic>{};
+      return ExpenseItem(
+        name: m['name']?.toString() ?? 'Other',
+        amount: (m['amount'] as num?)?.toDouble() ?? 0,
+        color: Color(int.tryParse(m['color']?.toString() ?? '0xFF448AFF') ?? 0xFF448AFF),
+      );
+    }).toList();
+  }
+  if (expenses.isEmpty) {
+    expenses = [
+      ExpenseItem(name: 'Payroll', amount: operatingExpenses * 0.45, color: const Color(0xFF448AFF)),
+      ExpenseItem(name: 'Marketing', amount: operatingExpenses * 0.25, color: const Color(0xFF00E676)),
+      ExpenseItem(name: 'Administrative', amount: operatingExpenses * 0.20, color: const Color(0xFFFFD740)),
+      ExpenseItem(name: 'R&D', amount: operatingExpenses * 0.10, color: const Color(0xFF7C4DFF)),
+    ];
+  }
+
+  final moneyTrailData = MoneyTrailData(
+    revenue: revenue,
+    grossProfit: grossProfit,
+    operatingIncome: operatingIncome,
+    netIncome: netIncome,
+    cogs: cogs,
+    operatingExpenses: operatingExpenses,
+    taxes: taxes,
+    cashConversion: (mtMap['cashConversion'] as num?)?.toDouble() ?? 75.0,
+    qualityScore: (mtMap['qualityScore'] as num?)?.toInt() ?? 70,
+    riskLevel: mtMap['riskLevel']?.toString() ?? 'Low',
+    expenses: expenses,
+    taxPaid: (mtMap['taxPaid'] as num?)?.toDouble() ?? taxes,
+  );
+
+  // Parse price/score histories
+  List<double> priceHistory = [];
+  final phRaw = row['price_history'];
+  if (phRaw is List) {
+    priceHistory = phRaw.map((e) => (e as num).toDouble()).toList();
+  } else if (phRaw is String) {
+    try { priceHistory = List<double>.from((jsonDecode(phRaw) as List).map((e) => (e as num).toDouble())); } catch (_) {}
+  }
+  if (priceHistory.isEmpty) {
+    priceHistory = [(row['price'] as num?)?.toDouble() ?? 100.0];
+  }
+
+  List<double> truthScoreHistory = [];
+  final tshRaw = row['truth_score_history'];
+  if (tshRaw is List) {
+    truthScoreHistory = tshRaw.map((e) => (e as num).toDouble()).toList();
+  } else if (tshRaw is String) {
+    try { truthScoreHistory = List<double>.from((jsonDecode(tshRaw) as List).map((e) => (e as num).toDouble())); } catch (_) {}
+  }
+  if (truthScoreHistory.isEmpty) {
+    truthScoreHistory = [(row['truth_score'] as num?)?.toDouble() ?? 50.0];
+  }
+
+  return Company(
+    name: row['name']?.toString() ?? '',
+    ticker: row['ticker']?.toString() ?? '',
+    sector: row['sector']?.toString() ?? '',
+    price: (row['price'] as num?)?.toDouble() ?? 0,
+    changePercent: (row['change_percent'] as num?)?.toDouble() ?? 0,
+    volatility: (row['volatility'] as num?)?.toDouble() ?? 20,
+    truthScore: (row['truth_score'] as num?)?.toInt() ?? 50,
+    accountingRiskScore: (row['accounting_risk_score'] as num?)?.toInt() ?? 25,
+    sentimentScore: (row['sentiment_score'] as num?)?.toInt() ?? 50,
+    credibilityScore: (row['credibility_score'] as num?)?.toInt() ?? 50,
+    managementHonestyScore: (row['management_honesty_score'] as num?)?.toInt() ?? 50,
+    trend: parseTrend(row['trend']?.toString()),
+    smartMoneySignal: parseSignal(row['smart_money_signal']?.toString()),
+    beneishMScore: (row['beneish_m_score'] as num?)?.toDouble() ?? -2.5,
+    altmanZScore: (row['altman_z_score'] as num?)?.toDouble() ?? 3.0,
+    roce: (row['roce'] as num?)?.toDouble() ?? 0,
+    operatingMargin: (row['operating_margin'] as num?)?.toDouble() ?? 0,
+    debtToEquity: (row['debt_to_equity'] as num?)?.toDouble() ?? 0,
+    keyInsights: keyInsights,
+    redFlags: redFlags,
+    whatChanged: whatChanged,
+    credibilityTimeline: credTimeline,
+    fraudSimilarities: fraudSim,
+    smartMoneyData: smartMoneyData,
+    moneyTrailData: moneyTrailData,
+    priceHistory: priceHistory,
+    truthScoreHistory: truthScoreHistory,
+  );
+}
+
+class CompaniesNotifier extends StateNotifier<List<Company>> {
+  Timer? _priceTimer;
+
+  CompaniesNotifier() : super([]) {
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Try loading from Supabase first
+    try {
+      final rows = await SupabaseService.fetchCompanies();
+      if (rows.isNotEmpty) {
+        state = rows.map(_mapRowToCompany).toList();
+      } else {
+        // No data in Supabase yet — use local mock data as fallback
+        state = CompanyDataGenerator.generateAll();
+      }
+    } catch (_) {
+      // Supabase unreachable — use local mock data
+      state = CompanyDataGenerator.generateAll();
+    }
+
+    // Refresh prices every 5 minutes
+    _priceTimer = Timer.periodic(const Duration(minutes: 5), (_) => _refreshPrices());
+    // Also refresh once on startup after a short delay
+    Future.delayed(const Duration(seconds: 5), _refreshPrices);
+  }
+
+  Future<void> _refreshPrices() async {
+    if (state.isEmpty) return;
+    try {
+      final tickers = state.map((c) => c.ticker).toList();
+      final prices = await PriceService.fetchPrices(tickers);
+      if (prices.isEmpty) return;
+
       state = state.map((c) {
-        final delta = c.price * (Random().nextDouble() * 0.01 - 0.005); // +/- 0.5%
+        final p = prices[c.ticker];
+        if (p == null) return c;
         return Company(
           name: c.name,
           ticker: c.ticker,
           sector: c.sector,
-          price: c.price + delta,
-          changePercent: c.changePercent + (delta / c.price * 100),
+          price: p.price,
+          changePercent: p.changePercent,
           volatility: c.volatility,
           truthScore: c.truthScore,
           accountingRiskScore: c.accountingRiskScore,
@@ -80,22 +469,24 @@ class StockSimulatorNotifier extends StateNotifier<List<Company>> {
           fraudSimilarities: c.fraudSimilarities,
           smartMoneyData: c.smartMoneyData,
           moneyTrailData: c.moneyTrailData,
-          priceHistory: [...c.priceHistory, c.price + delta],
+          priceHistory: [...c.priceHistory, p.price],
           truthScoreHistory: c.truthScoreHistory,
         );
       }).toList();
-    });
+    } catch (_) {
+      // Keep last known prices on failure
+    }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _priceTimer?.cancel();
     super.dispose();
   }
 }
 
-final companiesProvider = StateNotifierProvider<StockSimulatorNotifier, List<Company>>((ref) {
-  return StockSimulatorNotifier();
+final companiesProvider = StateNotifierProvider<CompaniesNotifier, List<Company>>((ref) {
+  return CompaniesNotifier();
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -103,48 +494,67 @@ final companiesProvider = StateNotifierProvider<StockSimulatorNotifier, List<Com
 // ═══════════════════════════════════════════════════════════════
 
 class WatchlistNotifier extends StateNotifier<List<String>> {
-  final SharedPreferences _prefs;
-
-  WatchlistNotifier(this._prefs, List<Company> companies)
-      : super(_prefs.getStringList('watchlist_tickers') ?? []);
-
-  void _save() {
-    _prefs.setStringList('watchlist_tickers', state);
+  WatchlistNotifier() : super([]) {
+    _load();
   }
 
-  void addTicker(String ticker) {
-    if (!state.contains(ticker)) {
-      state = [...state, ticker];
-      _save();
+  Future<void> _load() async {
+    final uid = SupabaseService.currentUserId;
+    if (uid == null) return;
+    try {
+      state = await SupabaseService.fetchWatchlist(uid);
+    } catch (_) {}
+  }
+
+  Future<void> addTicker(String ticker) async {
+    if (state.contains(ticker)) return;
+    state = [...state, ticker];
+    final uid = SupabaseService.currentUserId;
+    if (uid != null) {
+      try {
+        await SupabaseService.addToWatchlist(uid, ticker, state.length - 1);
+      } catch (_) {}
     }
   }
 
-  void removeTicker(String ticker) {
+  Future<void> removeTicker(String ticker) async {
     state = state.where((t) => t != ticker).toList();
-    _save();
+    final uid = SupabaseService.currentUserId;
+    if (uid != null) {
+      try {
+        await SupabaseService.removeFromWatchlist(uid, ticker);
+      } catch (_) {}
+    }
   }
 
-  void reorder(int oldIndex, int newIndex) {
+  Future<void> reorder(int oldIndex, int newIndex) async {
     final list = [...state];
     if (newIndex > oldIndex) newIndex--;
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);
     state = list;
-    _save();
+    final uid = SupabaseService.currentUserId;
+    if (uid != null) {
+      try {
+        await SupabaseService.updateWatchlistPositions(uid, state);
+      } catch (_) {}
+    }
   }
 }
 
 final watchlistProvider =
     StateNotifierProvider<WatchlistNotifier, List<String>>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  final companies = ref.watch(companiesProvider);
-  return WatchlistNotifier(prefs, companies);
+  // Re-create when auth changes so watchlist reloads on login/logout
+  ref.watch(authProvider);
+  return WatchlistNotifier();
 });
 
 final watchlistCompaniesProvider = Provider<List<Company>>((ref) {
   final tickers = ref.watch(watchlistProvider);
   final companies = ref.watch(companiesProvider);
+  if (companies.isEmpty) return [];
   return tickers
+      .where((t) => companies.any((c) => c.ticker == t))
       .map((t) => companies.firstWhere((c) => c.ticker == t))
       .toList();
 });
@@ -154,50 +564,31 @@ final watchlistCompaniesProvider = Provider<List<Company>>((ref) {
 // ═══════════════════════════════════════════════════════════════
 
 class PortfolioNotifier extends StateNotifier<Portfolio> {
-  final SharedPreferences _prefs;
-
-  PortfolioNotifier(this._prefs, List<Company> companies)
-      : super(Portfolio(
-          name: 'My Portfolio',
-          holdings: _loadHoldings(_prefs, companies),
-        ));
-
-  static List<PortfolioHolding> _loadHoldings(SharedPreferences prefs, List<Company> companies) {
-    final data = prefs.getString('portfolio_holdings');
-    List<Map<String, dynamic>> selected;
-    if (data != null) {
-      selected = List<Map<String, dynamic>>.from(jsonDecode(data));
-    } else {
-      selected = [
-        {'ticker': 'RELIANCE', 'shares': 120, 'avgPrice': 2450.00},
-        {'ticker': 'HDFCBANK', 'shares': 45, 'avgPrice': 1580.00},
-        {'ticker': 'INFY', 'shares': 80, 'avgPrice': 1320.00},
-        {'ticker': 'TATAMOTORS', 'shares': 250, 'avgPrice': 640.00},
-      ];
-    }
-
-    return selected.map((s) {
-      final company =
-          companies.firstWhere((c) => c.ticker == s['ticker'] as String, orElse: () => companies.first);
-      return PortfolioHolding(
-        ticker: company.ticker,
-        companyName: company.name,
-        shares: s['shares'] as int,
-        avgPrice: (s['avgPrice'] as num).toDouble(),
-        currentPrice: company.price,
-        volatility: company.volatility,
-        truthScore: company.truthScore,
-      );
-    }).toList();
+  PortfolioNotifier(List<Company> companies)
+      : super(const Portfolio(name: 'My Portfolio', holdings: [])) {
+    _load(companies);
   }
 
-  void _save() {
-    final data = state.holdings.map((h) => {
-      'ticker': h.ticker,
-      'shares': h.shares,
-      'avgPrice': h.avgPrice,
-    }).toList();
-    _prefs.setString('portfolio_holdings', jsonEncode(data));
+  Future<void> _load(List<Company> companies) async {
+    final uid = SupabaseService.currentUserId;
+    if (uid == null) return;
+    try {
+      final rows = await SupabaseService.fetchPortfolio(uid);
+      final holdings = rows.map((r) {
+        final ticker = r['ticker'] as String;
+        final comp = companies.where((c) => c.ticker == ticker).firstOrNull;
+        return PortfolioHolding(
+          ticker: ticker,
+          companyName: comp?.name ?? ticker,
+          shares: (r['shares'] as num).toInt(),
+          avgPrice: (r['avg_price'] as num).toDouble(),
+          currentPrice: comp?.price ?? 0,
+          volatility: comp?.volatility ?? 20,
+          truthScore: comp?.truthScore ?? 50,
+        );
+      }).toList();
+      state = Portfolio(name: 'My Portfolio', holdings: holdings);
+    } catch (_) {}
   }
 
   void syncPrices(List<Company> companies) {
@@ -226,7 +617,7 @@ class PortfolioNotifier extends StateNotifier<Portfolio> {
       return PortfolioHolding(
         ticker: h.ticker,
         companyName: h.companyName,
-        shares: (h.shares * 1.1).round(), // slightly increase shares for mock optimization
+        shares: (h.shares * 1.1).round(),
         avgPrice: h.avgPrice,
         currentPrice: h.currentPrice,
         volatility: h.volatility,
@@ -234,29 +625,35 @@ class PortfolioNotifier extends StateNotifier<Portfolio> {
       );
     }).toList();
     state = Portfolio(name: state.name, holdings: newHoldings);
-    _save();
+    _saveAll();
   }
 
-  void addHolding(String ticker, int shares, double avgPrice, {Company? company}) {
+  Future<void> addHolding(String ticker, int shares, double avgPrice, {Company? company}) async {
     if (company == null) return;
     final existing = state.holdings.indexWhere((h) => h.ticker == ticker);
 
     List<PortfolioHolding> newHoldings;
+    int finalShares;
+    double finalAvgPrice;
+
     if (existing >= 0) {
       final old = state.holdings[existing];
-      final totalShares = old.shares + shares;
+      finalShares = old.shares + shares;
       final totalCost = old.totalCost + (shares * avgPrice);
+      finalAvgPrice = totalCost / finalShares;
       newHoldings = [...state.holdings];
       newHoldings[existing] = PortfolioHolding(
         ticker: ticker,
         companyName: company.name,
-        shares: totalShares,
-        avgPrice: totalCost / totalShares,
+        shares: finalShares,
+        avgPrice: finalAvgPrice,
         currentPrice: company.price,
         volatility: company.volatility,
         truthScore: company.truthScore,
       );
     } else {
+      finalShares = shares;
+      finalAvgPrice = avgPrice;
       newHoldings = [
         ...state.holdings,
         PortfolioHolding(
@@ -272,22 +669,45 @@ class PortfolioNotifier extends StateNotifier<Portfolio> {
     }
 
     state = Portfolio(name: state.name, holdings: newHoldings);
-    _save();
+    
+    final uid = SupabaseService.currentUserId;
+    if (uid != null) {
+      try {
+        await SupabaseService.upsertHolding(uid, ticker, finalShares, finalAvgPrice);
+      } catch (_) {}
+    }
   }
 
-  void removeHolding(String ticker) {
+  Future<void> removeHolding(String ticker) async {
     final newHoldings =
         state.holdings.where((h) => h.ticker != ticker).toList();
     state = Portfolio(name: state.name, holdings: newHoldings);
-    _save();
+    
+    final uid = SupabaseService.currentUserId;
+    if (uid != null) {
+      try {
+        await SupabaseService.removeHolding(uid, ticker);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveAll() async {
+    final uid = SupabaseService.currentUserId;
+    if (uid == null) return;
+    for (final h in state.holdings) {
+      try {
+        await SupabaseService.upsertHolding(uid, h.ticker, h.shares, h.avgPrice);
+      } catch (_) {}
+    }
   }
 }
 
 final portfolioProvider =
     StateNotifierProvider<PortfolioNotifier, Portfolio>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
+  // Re-create when auth changes
+  ref.watch(authProvider);
   final initialCompanies = ref.read(companiesProvider);
-  final notifier = PortfolioNotifier(prefs, initialCompanies);
+  final notifier = PortfolioNotifier(initialCompanies);
   
   ref.listen<List<Company>>(companiesProvider, (prev, next) {
     notifier.syncPrices(next);
